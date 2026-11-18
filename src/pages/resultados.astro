@@ -1,0 +1,151 @@
+---
+import { TITULO, CANDIDATO, BLANCO } from '../config';
+import { supabase } from '../lib/supabase';
+export const prerender = false;
+
+const contar = (opcion: string) =>
+  supabase.from('votos').select('*', { count: 'exact', head: true }).eq('opcion', opcion);
+
+const [c, b] = await Promise.all([contar('candidato'), contar('blanco')]);
+
+const error = c.error || b.error;
+const nCand = c.count ?? 0;
+const nBlan = b.count ?? 0;
+const total = nCand + nBlan;
+const pct = (n: number) => (total ? Math.round((n / total) * 1000) / 10 : 0);
+
+const filas = [
+  { ...CANDIDATO, n: nCand, p: pct(nCand), clase: 'candidato' },
+  { ...BLANCO, n: nBlan, p: pct(nBlan), clase: 'blanco' },
+];
+
+const lider =
+  total === 0 ? null : nCand === nBlan ? 'Empate' : nCand > nBlan ? CANDIDATO.nombre : BLANCO.nombre;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="refresh" content="15" />
+    <title>Resultados · {TITULO}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="pill"><i></i>Resultados en vivo</span>
+        <h1>{TITULO}</h1>
+        <p class="total"><strong>{total}</strong> {total === 1 ? 'voto registrado' : 'votos registrados'}</p>
+      </header>
+
+      {error && <p class="err">No se pudieron cargar los resultados.</p>}
+
+      <section class="rows">
+        {filas.map((f) => (
+          <div class={`row ${f.clase}`}>
+            <div class="top">
+              <span class="name">{f.nombre}</span>
+              <span class="num"><b>{f.p}%</b><em>{f.n} {f.n === 1 ? 'voto' : 'votos'}</em></span>
+            </div>
+            <div class="track"><div class="bar" style={`--w:${f.p}%`}></div></div>
+          </div>
+        ))}
+      </section>
+
+      {lider && <p class="lider">{lider === 'Empate' ? 'Empate técnico' : `Lidera: ${lider}`}</p>}
+
+      <footer><a href="/">← Volver a votar</a><span>Se actualiza cada 15 s</span></footer>
+    </main>
+
+    <style is:global>
+      :root {
+        --aqua: #a9d6d8;
+        --aqua-2: #7dbcc0;
+        --deep: #2e6f77;
+        --ink: #12302f;
+        --mut: #60777a;
+        --bg: #f5f9f9;
+        --surface: #ffffff;
+        --tint: #eff6f6;
+        --line: #dbe9ea;
+        --line-2: #c6dcdd;
+        --err: #d0405c;
+      }
+      * { box-sizing: border-box; margin: 0; }
+      body {
+        min-height: 100vh;
+        font-family: 'Inter', system-ui, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(700px 420px at 8% -5%, rgba(169, 214, 216, 0.38), transparent 70%),
+          radial-gradient(600px 400px at 100% 105%, rgba(169, 214, 216, 0.28), transparent 70%),
+          radial-gradient(rgba(46, 111, 119, 0.07) 1px, transparent 1.2px) 0 0 / 22px 22px,
+          var(--bg);
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main {
+        position: relative;
+        overflow: hidden;
+        width: min(560px, 100%);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: clamp(24px, 5vw, 40px);
+        box-shadow: 0 1px 2px rgba(10, 60, 66, 0.05), 0 28px 60px -24px rgba(46, 111, 119, 0.28);
+        animation: rise 0.5s ease both;
+      }
+      main::before {
+        content: ''; position: absolute; inset: 0 0 auto 0; height: 4px;
+        background: linear-gradient(90deg, var(--aqua), var(--aqua-2));
+      }
+      @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+      header { margin-bottom: 30px; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--deep);
+      }
+      .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--aqua-2); box-shadow: 0 0 0 3px rgba(125, 188, 192, 0.3); animation: pulse 2s ease-in-out infinite; }
+      @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(125, 188, 192, 0); } }
+      h1 { font-size: clamp(26px, 6vw, 34px); font-weight: 700; letter-spacing: -0.02em; margin: 12px 0 8px; }
+      .total { color: var(--mut); font-size: 15px; }
+      .total strong { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+      .err { color: var(--err); margin-bottom: 16px; font-size: 14px; }
+
+      .rows { display: grid; gap: 26px; }
+      .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 10px; }
+      .name { font-size: 16px; font-weight: 600; }
+      .num { display: flex; align-items: baseline; gap: 10px; font-variant-numeric: tabular-nums; }
+      .num b { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+      .num em { font-style: normal; color: var(--mut); font-size: 13px; }
+
+      .track { height: 10px; border-radius: 99px; background: #e6f0f1; overflow: hidden; }
+      .bar { height: 100%; width: var(--w); border-radius: 99px; animation: grow 1s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+      .candidato .bar { background: linear-gradient(90deg, var(--aqua), var(--aqua-2)); }
+      .blanco .bar { background: #bfcdcf; }
+      @keyframes grow { from { width: 0; } }
+
+      .lider {
+        margin-top: 30px; padding: 12px 14px; border-radius: 10px; font-size: 14px; font-weight: 500;
+        color: var(--ink); background: var(--tint); border: 1px solid var(--line-2);
+      }
+      footer {
+        display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+        margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--mut);
+      }
+      footer a { color: var(--deep); text-decoration: none; font-weight: 600; }
+      footer a:hover { text-decoration: underline; }
+    </style>
+  </body>
+</html>

@@ -1,0 +1,253 @@
+---
+import { TITULO, CANDIDATO, BLANCO } from '../config';
+export const prerender = false;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{TITULO}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="pill"><i></i>Votación oficial</span>
+        <h1>{TITULO}</h1>
+        <p class="sub">Ingresa tu DNI, elige una opción y confirma. Cada DNI vota una sola vez.</p>
+      </header>
+
+      <form id="form" novalidate>
+        <label class="field">
+          <span>Documento de identidad (DNI)</span>
+          <input
+            id="dni"
+            name="dni"
+            inputmode="numeric"
+            autocomplete="off"
+            maxlength="8"
+            placeholder="00000000"
+          />
+        </label>
+
+        <p class="label">Elige tu opción</p>
+        <div class="options" role="radiogroup" aria-label="Opciones de voto">
+          <button type="button" class="card candidato" data-op={CANDIDATO.id} role="radio" aria-checked="false">
+            <span class="avatar">{CANDIDATO.nombre.charAt(0)}</span>
+            <span class="txt">
+              <strong>{CANDIDATO.nombre}</strong>
+              <small>{CANDIDATO.lema}</small>
+            </span>
+            <span class="check"></span>
+          </button>
+
+          <button type="button" class="card blanco" data-op={BLANCO.id} role="radio" aria-checked="false">
+            <span class="avatar">—</span>
+            <span class="txt">
+              <strong>{BLANCO.nombre}</strong>
+              <small>{BLANCO.lema}</small>
+            </span>
+            <span class="check"></span>
+          </button>
+        </div>
+
+        <p id="msg" class="msg" role="status" aria-live="polite"></p>
+        <button id="enviar" class="send" type="submit">Emitir mi voto</button>
+      </form>
+
+      <div id="exito" class="exito" hidden>
+        <div class="tick">✓</div>
+        <h2>Voto registrado</h2>
+        <p>Gracias por participar.</p>
+        <a href="/resultados">Ver resultados →</a>
+      </div>
+
+      <footer><a href="/resultados">Ver resultados</a></footer>
+    </main>
+
+    <script>
+      const form = document.getElementById('form') as HTMLFormElement;
+      const dni = document.getElementById('dni') as HTMLInputElement;
+      const msg = document.getElementById('msg') as HTMLElement;
+      const btn = document.getElementById('enviar') as HTMLButtonElement;
+      const exito = document.getElementById('exito') as HTMLElement;
+      const cards = document.querySelectorAll<HTMLButtonElement>('.card');
+      let opcion = '';
+
+      // Solo números en el DNI
+      dni.addEventListener('input', () => {
+        dni.value = dni.value.replace(/\D/g, '').slice(0, 8);
+      });
+
+      cards.forEach((c) =>
+        c.addEventListener('click', () => {
+          cards.forEach((x) => {
+            x.classList.remove('active');
+            x.setAttribute('aria-checked', 'false');
+          });
+          c.classList.add('active');
+          c.setAttribute('aria-checked', 'true');
+          opcion = c.dataset.op || '';
+          msg.textContent = '';
+        })
+      );
+
+      function error(t: string) {
+        msg.textContent = t;
+        msg.className = 'msg err';
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!/^\d{8}$/.test(dni.value)) return error('Escribe un DNI de 8 dígitos.');
+        if (!opcion) return error('Elige una opción antes de votar.');
+
+        btn.disabled = true;
+        btn.textContent = 'Guardando…';
+        try {
+          const r = await fetch('/api/votar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dni: dni.value, opcion }),
+          });
+          const d = await r.json();
+          if (d.ok) {
+            form.hidden = true;
+            exito.hidden = false;
+          } else {
+            error(d.error || 'Ocurrió un error.');
+          }
+        } catch {
+          error('Sin conexión con el servidor.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Emitir mi voto';
+        }
+      });
+    </script>
+
+    <style is:global>
+      :root {
+        --aqua: #a9d6d8;          /* color principal */
+        --aqua-2: #7dbcc0;        /* aqua más intenso (hover, barras) */
+        --deep: #2e6f77;          /* aqua oscuro para textos y detalles */
+        --ink: #12302f;
+        --mut: #60777a;
+        --bg: #f5f9f9;
+        --surface: #ffffff;
+        --tint: #eff6f6;
+        --line: #dbe9ea;
+        --line-2: #c6dcdd;
+        --err: #d0405c;
+      }
+      * { box-sizing: border-box; margin: 0; }
+      body {
+        min-height: 100vh;
+        font-family: 'Inter', system-ui, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(700px 420px at 8% -5%, rgba(169, 214, 216, 0.38), transparent 70%),
+          radial-gradient(600px 400px at 100% 105%, rgba(169, 214, 216, 0.28), transparent 70%),
+          radial-gradient(rgba(46, 111, 119, 0.07) 1px, transparent 1.2px) 0 0 / 22px 22px,
+          var(--bg);
+        display: grid;
+        place-items: center;
+        padding: 24px 16px;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      main {
+        position: relative;
+        overflow: hidden;
+        width: min(560px, 100%);
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        padding: clamp(24px, 5vw, 40px);
+        box-shadow: 0 1px 2px rgba(10, 60, 66, 0.05), 0 28px 60px -24px rgba(46, 111, 119, 0.28);
+        animation: rise 0.5s ease both;
+      }
+      main::before {
+        content: ''; position: absolute; inset: 0 0 auto 0; height: 4px;
+        background: linear-gradient(90deg, var(--aqua), var(--aqua-2));
+      }
+      @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+      header { margin-bottom: 28px; }
+      .pill {
+        display: inline-flex; align-items: center; gap: 8px;
+        font-size: 12px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--deep);
+      }
+      .pill i { width: 7px; height: 7px; border-radius: 50%; background: var(--aqua-2); box-shadow: 0 0 0 3px rgba(125, 188, 192, 0.3); }
+      h1 { font-size: clamp(26px, 6vw, 34px); font-weight: 700; letter-spacing: -0.02em; margin: 12px 0 8px; }
+      .sub { color: var(--mut); font-size: 15px; line-height: 1.55; }
+
+      .field { display: block; margin-bottom: 24px; }
+      .field span, .label { display: block; font-size: 13px; font-weight: 500; color: var(--mut); margin-bottom: 8px; }
+      input {
+        width: 100%; padding: 14px 16px; font: 600 20px 'Inter', sans-serif; letter-spacing: 0.22em;
+        font-variant-numeric: tabular-nums; color: var(--ink);
+        background: #f8fbfb; border: 1px solid var(--line-2); border-radius: 10px; outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      }
+      input::placeholder { color: #aebfc1; }
+      input:focus { background: #fff; border-color: var(--aqua-2); box-shadow: 0 0 0 4px rgba(169, 214, 216, 0.45); }
+
+      .options { display: grid; gap: 10px; }
+      .card {
+        position: relative; display: flex; align-items: center; gap: 14px; text-align: left; cursor: pointer;
+        width: 100%; padding: 16px 18px; border-radius: 12px; color: var(--ink); font-family: inherit;
+        background: #fff; border: 1px solid var(--line-2);
+        transition: border-color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s;
+      }
+      .card:hover { border-color: var(--aqua-2); transform: translateY(-1px); box-shadow: 0 8px 20px -12px rgba(46, 111, 119, 0.35); }
+      .card:focus-visible { outline: 2px solid var(--deep); outline-offset: 2px; }
+      .card .avatar {
+        flex: none; width: 44px; height: 44px; border-radius: 10px; display: grid; place-items: center;
+        font-size: 18px; font-weight: 700; color: var(--deep); background: var(--aqua);
+      }
+      .card.blanco .avatar { color: var(--mut); background: #edf2f3; }
+      .card .txt { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+      .card strong { font-size: 16px; font-weight: 600; }
+      .card small { color: var(--mut); font-size: 13px; }
+      .card .check {
+        flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line-2);
+        background: #fff; transition: all 0.15s;
+      }
+      .card.active { border-color: var(--aqua-2); background: var(--tint); box-shadow: 0 0 0 3px rgba(169, 214, 216, 0.45); }
+      .card.active .check { border-color: var(--deep); background: var(--deep); box-shadow: inset 0 0 0 4px #fff; }
+
+      .msg { min-height: 22px; margin: 16px 0 6px; font-size: 14px; }
+      .msg.err { color: var(--err); }
+
+      .send {
+        width: 100%; padding: 15px; border: 0; border-radius: 10px; cursor: pointer;
+        font: 600 16px 'Inter', sans-serif; color: #0f2f33; background: var(--aqua);
+        box-shadow: 0 8px 20px -8px rgba(46, 111, 119, 0.55);
+        transition: background 0.15s, transform 0.15s, opacity 0.15s;
+      }
+      .send:hover { background: #9ccbce; }
+      .send:active { transform: translateY(1px); }
+      .send:disabled { opacity: 0.6; cursor: wait; }
+
+      .exito { text-align: center; padding: 16px 0 4px; animation: rise 0.4s ease both; }
+      .exito[hidden], form[hidden] { display: none; }
+      .tick {
+        width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center;
+        font-size: 30px; color: var(--deep); background: var(--aqua); box-shadow: 0 0 0 8px rgba(169, 214, 216, 0.35);
+      }
+      .exito h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+      .exito p { color: var(--mut); margin-bottom: 16px; }
+      .exito a, footer a { color: var(--deep); text-decoration: none; font-weight: 600; }
+      .exito a:hover, footer a:hover { text-decoration: underline; }
+      footer { text-align: center; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; }
+    </style>
+  </body>
+</html>
