@@ -19,7 +19,7 @@ export const prerender = false;
   <body>
     <main>
       <header>
-        <span class="pill"><i></i>Votación oficial</span>
+        <span class="pill"><i></i>I.E. 80848 NUESTRA SEÑORA DEL PERPETUO SOCORRO- EL TROPICO</span>
         <h1>{TITULO}</h1>
         <p class="sub">Ingresa tu DNI, elige una opción y confirma. Cada DNI vota una sola vez.</p>
       </header>
@@ -40,16 +40,15 @@ export const prerender = false;
         <p class="label">Elige tu opción</p>
         <div class="options" role="radiogroup" aria-label="Opciones de voto">
           <button type="button" class="card candidato" data-op={CANDIDATO.id} role="radio" aria-checked="false">
-            <span class="avatar">{CANDIDATO.nombre.charAt(0)}</span>
+            <span class="avatar">{CANDIDATO.simbolo}</span>
             <span class="txt">
               <strong>{CANDIDATO.nombre}</strong>
-              <small>{CANDIDATO.lema}</small>
             </span>
             <span class="check"></span>
           </button>
 
           <button type="button" class="card blanco" data-op={BLANCO.id} role="radio" aria-checked="false">
-            <span class="avatar">—</span>
+            <span class="avatar">{BLANCO.simbolo}</span>
             <span class="txt">
               <strong>{BLANCO.nombre}</strong>
               <small>{BLANCO.lema}</small>
@@ -66,10 +65,7 @@ export const prerender = false;
         <div class="tick">✓</div>
         <h2>Voto registrado</h2>
         <p>Gracias por participar.</p>
-        <a href="/resultados">Ver resultados →</a>
       </div>
-
-      <footer><a href="/resultados">Ver resultados</a></footer>
     </main>
 
     <script>
